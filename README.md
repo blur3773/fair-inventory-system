@@ -42,7 +42,6 @@ python main.py
 
 - [Отчёт DOCX](report/Отчет_ПР1_Изосимов_МИ.docx)
 - [Отчёт PDF](output/pdf/Отчет_ПР1_Изосимов_МИ.pdf)
-- [Ответы на контрольные вопросы](CONTROL_QUESTIONS.md)
 
 ## План развития
 
