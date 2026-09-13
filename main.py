@@ -60,7 +60,7 @@ def main() -> None:
         total_quantity,
         sold_quantity,
     )
-    revenue = calculate_revenue(total_quantity, unit_price)
+    revenue = calculate_revenue(sold_quantity, unit_price)
     stock_status = get_stock_status(remaining_quantity)
 
     print("СИСТЕМА УЧЁТА ТОВАРОВ НА ЯРМАРКЕ")
