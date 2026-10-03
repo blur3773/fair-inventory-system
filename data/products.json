@@ -2,7 +2,7 @@
   {
     "id": 1,
     "name": "Мёд цветочный",
-    "seller": "ИП Иванов",
+    "seller_id": 1,
     "stand": "Стенд A-12",
     "total_quantity": 50,
     "unit_price": 450.0
@@ -10,7 +10,7 @@
   {
     "id": 2,
     "name": "Керамическая кружка",
-    "seller": "Мастерская Орлова",
+    "seller_id": 2,
     "stand": "Стенд B-03",
     "total_quantity": 20,
     "unit_price": 700.0

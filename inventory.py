@@ -1,162 +1,147 @@
-"""Функции для работы с товарами и продажами ярмарки."""
+"""Операции над коллекциями объектов товаров, продавцов и продаж."""
 
 from datetime import date
-from typing import Optional
+from typing import Dict, List, Optional
+
+from models import Product, Sale, Seller
 
 
-def get_product_by_id(products: list[dict], product_id: int) -> Optional[dict]:
-    """Найти товар по идентификатору."""
+def get_product_by_id(
+    products: List[Product], product_id: int
+) -> Optional[Product]:
+    """Найти объект товара по идентификатору."""
     for product in products:
-        if product["id"] == product_id:
+        if product.id == product_id:
             return product
     return None
 
 
-def get_sold_quantity(sales: list[dict], product_id: int) -> int:
-    """Рассчитать количество проданных единиц товара."""
-    sold_quantity = 0
-    for sale in sales:
-        if sale["product_id"] == product_id:
-            sold_quantity += sale["quantity"]
-    return sold_quantity
+def get_seller_by_id(
+    sellers: List[Seller], seller_id: int
+) -> Optional[Seller]:
+    """Найти объект продавца по идентификатору."""
+    for seller in sellers:
+        if seller.id == seller_id:
+            return seller
+    return None
 
 
-def calculate_remaining_quantity(
-    total_quantity: int, sold_quantity: int
-) -> int:
-    """Рассчитать остаток товара на стенде."""
-    return total_quantity - sold_quantity
-
-
-def get_remaining_quantity(product: dict, sales: list[dict]) -> int:
-    """Рассчитать текущий остаток выбранного товара."""
-    sold_quantity = get_sold_quantity(sales, product["id"])
-    return calculate_remaining_quantity(
-        product["total_quantity"], sold_quantity
-    )
-
-
-def calculate_revenue(sold_quantity: int, unit_price: float) -> float:
-    """Рассчитать выручку от проданных единиц товара."""
-    return sold_quantity * unit_price
-
-
-def get_stock_status(remaining_quantity: int) -> str:
-    """Определить состояние запаса товара."""
-    if remaining_quantity == 0:
-        return "товар закончился"
-    if remaining_quantity <= 10:
-        return "товар заканчивается"
-    return "товар в наличии"
+def add_seller(sellers: List[Seller], name: str, contact: str) -> Seller:
+    """Создать продавца и добавить его в коллекцию."""
+    next_id = max((seller.id for seller in sellers), default=0) + 1
+    seller = Seller(next_id, name, contact)
+    sellers.append(seller)
+    return seller
 
 
 def add_product(
-    products: list[dict],
+    products: List[Product],
     name: str,
-    seller: str,
+    seller: Seller,
     stand: str,
     total_quantity: int,
     unit_price: float,
-) -> dict:
-    """Добавить товар в список и вернуть созданную запись."""
-    next_id = max((product["id"] for product in products), default=0) + 1
-    product = {
-        "id": next_id,
-        "name": name,
-        "seller": seller,
-        "stand": stand,
-        "total_quantity": total_quantity,
-        "unit_price": unit_price,
-    }
+) -> Optional[Product]:
+    """Создать товар и добавить его в коллекцию объектов."""
+    if not Product.validate_values(total_quantity, unit_price):
+        return None
+    next_id = max((product.id for product in products), default=0) + 1
+    product = Product(
+        next_id,
+        name,
+        seller,
+        stand,
+        total_quantity,
+        unit_price,
+    )
     products.append(product)
     return product
 
 
-def find_products(products: list[dict], query: str) -> list[dict]:
-    """Найти товары по части названия без учёта регистра."""
-    found_products = []
+def find_products(products: List[Product], query: str) -> List[Product]:
+    """Найти объекты товаров по части названия без учёта регистра."""
     normalized_query = query.lower()
-    for product in products:
-        if normalized_query in product["name"].lower():
-            found_products.append(product)
-    return found_products
+    return [
+        product
+        for product in products
+        if normalized_query in product.name.lower()
+    ]
 
 
 def check_product_availability(
-    product: dict, sales: list[dict], required_quantity: int
+    product: Product, sales: List[Sale], required_quantity: int
 ) -> bool:
-    """Проверить, доступен ли товар в нужном количестве."""
-    remaining_quantity = get_remaining_quantity(product, sales)
-    return required_quantity > 0 and remaining_quantity >= required_quantity
+    """Проверить наличие товара через метод конкретного объекта."""
+    return product.is_available(sales, required_quantity)
 
 
 def register_sale(
-    products: list[dict],
-    sales: list[dict],
+    products: List[Product],
+    sales: List[Sale],
     product_id: int,
     quantity: int,
     sale_date: date,
-) -> Optional[dict]:
-    """Зарегистрировать продажу при достаточном остатке товара."""
+) -> Optional[Sale]:
+    """Создать объект продажи при достаточном остатке товара."""
     product = get_product_by_id(products, product_id)
-    if product is None or not check_product_availability(
-        product, sales, quantity
-    ):
+    if product is None or not product.is_available(sales, quantity):
         return None
 
-    next_id = max((sale["id"] for sale in sales), default=0) + 1
-    sale = {
-        "id": next_id,
-        "product_id": product_id,
-        "quantity": quantity,
-        "sale_date": sale_date.isoformat(),
-        "revenue": calculate_revenue(quantity, product["unit_price"]),
-    }
+    next_id = max((sale.id for sale in sales), default=0) + 1
+    sale = Sale(
+        next_id,
+        product,
+        quantity,
+        sale_date.isoformat(),
+        product.calculate_revenue(quantity),
+    )
     sales.append(sale)
     return sale
 
 
-def cancel_sale(sales: list[dict], sale_id: int) -> bool:
-    """Отменить продажу по идентификатору."""
+def cancel_sale(sales: List[Sale], sale_id: int) -> bool:
+    """Отменить активную продажу, не удаляя объект из журнала."""
     for sale in sales:
-        if sale["id"] == sale_id:
-            sales.remove(sale)
+        if sale.id == sale_id and not sale.is_cancelled:
+            sale.cancel()
             return True
     return False
 
 
 def filter_products_by_stock(
-    products: list[dict], sales: list[dict], minimum_quantity: int
-) -> list[dict]:
+    products: List[Product], sales: List[Sale], minimum_quantity: int
+) -> List[Product]:
     """Отобрать товары с остатком не меньше заданного значения."""
     return [
         product
         for product in products
-        if get_remaining_quantity(product, sales) >= minimum_quantity
+        if product.get_remaining_quantity(sales) >= minimum_quantity
     ]
 
 
 def sort_products_by_remaining(
-    products: list[dict], sales: list[dict]
-) -> list[dict]:
-    """Отсортировать товары по остатку от меньшего к большему."""
+    products: List[Product], sales: List[Sale]
+) -> List[Product]:
+    """Отсортировать объекты товаров по остаткам."""
     return sorted(
         products,
-        key=lambda product: get_remaining_quantity(product, sales),
+        key=lambda product: product.get_remaining_quantity(sales),
     )
 
 
-def get_inventory_statistics(products: list[dict], sales: list[dict]) -> dict:
-    """Сформировать статистику по товарам, остаткам и выручке."""
-    remaining_quantity = 0
-    for product in products:
-        remaining_quantity += get_remaining_quantity(product, sales)
-
-    sold_quantity = sum(sale["quantity"] for sale in sales)
-    revenue = sum(sale["revenue"] for sale in sales)
+def get_inventory_statistics(
+    products: List[Product], sales: List[Sale]
+) -> Dict[str, float]:
+    """Сформировать статистику, игнорируя отменённые продажи."""
+    remaining_quantity = sum(
+        product.get_remaining_quantity(sales) for product in products
+    )
+    active_sales = [sale for sale in sales if not sale.is_cancelled]
+    sold_quantity = sum(sale.quantity for sale in active_sales)
+    revenue = sum(sale.revenue for sale in active_sales)
     return {
-        "product_count": len(products),
-        "sold_quantity": sold_quantity,
-        "remaining_quantity": remaining_quantity,
+        "product_count": float(len(products)),
+        "sold_quantity": float(sold_quantity),
+        "remaining_quantity": float(remaining_quantity),
         "revenue": revenue,
     }

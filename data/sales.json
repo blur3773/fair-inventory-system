@@ -4,6 +4,7 @@
     "product_id": 1,
     "quantity": 18,
     "sale_date": "2026-09-13",
-    "revenue": 8100.0
+    "revenue": 8100.0,
+    "is_cancelled": false
   }
 ]
